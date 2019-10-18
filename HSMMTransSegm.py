@@ -3,9 +3,9 @@
 import numpy as np
 import random
 import math
-import time
 import codecs
 import os
+import matplotlib.pyplot as plt
 
 
 class HSMMWordSegm():
@@ -97,6 +97,7 @@ class HSMMWordSegm():
     def forward_filtering(self, sequence ):
         T = len(sequence)
         a = np.zeros( (len(sequence), self.MAX_LEN, self.num_class) )                            # 前向き確率
+        z = np.ones( T ) # 正規化定数
 
         for t in range(T):
             for k in range(self.MAX_LEN):
@@ -111,7 +112,7 @@ class HSMMWordSegm():
                     if tt>=0:
                         for kk in range(self.MAX_LEN):
                             for cc in range(self.num_class):
-                                a[t,k,c] += a[tt,kk,cc] * self.trans_prob[cc, c]
+                                a[t,k,c] += a[tt,kk,cc] * z[tt] * self.trans_prob[cc, c]
                         a[t,k,c] *= out_prob
                     else:
                         # 最初の単語
@@ -120,6 +121,10 @@ class HSMMWordSegm():
                     # 最後の単語の場合
                     if t==T-1:
                         a[t,k,c] *= self.trans_prob_eos[c]
+                        
+            # 正規化
+            z[t] = np.sum( a[t,:,:] )
+            a[t,:,:] /= z[t]
 
         return a
 
@@ -295,19 +300,28 @@ class HSMMWordSegm():
         np.savetxt( os.path.join(dir,"trans_eos.txt") , self.trans_prob_eos , delimiter="\t" )
 
 
+
 def main():
     segm = HSMMWordSegm( 3 )
     segm.load_data( "data.txt" )
     segm.print_result()
+    
+    liks = [segm.calc_loglik()]
 
-    for it in range(50):
+    for it in range(10):
         print( it )
         segm.learn()
-        print( "lik =", segm.calc_loglik() )
+        l = segm.calc_loglik()
+        liks.append( l )
+        print( "lik =", liks )
+
 
     segm.learn( True )
     segm.save_result("result")
     segm.print_result()
+    plt.plot( range(len(liks)), liks )
+    plt.show()
+
     return
 
 
